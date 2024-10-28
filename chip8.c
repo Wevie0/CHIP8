@@ -6,9 +6,16 @@
 #include <stdbool.h>
 #include <SDL2/SDL.h>
 
+#include "platform.h"
+
 const size_t START_ADDRESS = 0x200;
 const size_t FONT_SIZE = 80;
 const size_t FONT_START_ADDRESS = 0x50;
+
+const size_t VIDEO_WIDTH = 64;
+const size_t VIDEO_HEIGHT = 32;
+
+#define VIDEO_SIZE (VIDEO_WIDTH * VIDEO_HEIGHT)
 
 const uint8_t font[] = {
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
@@ -106,8 +113,6 @@ void cycle(chip8 *chip8)
     // current instruction
     uint16_t ins = chip8->memory[chip8->pc] << 8 | chip8->memory[chip8->pc + 1];
     chip8->pc += 2;
-
-    printf("%06x", chip8->pc);
 
     // switch
 
@@ -263,17 +268,22 @@ void cycle(chip8 *chip8)
         break;
     case 0xD:
         // DRAW
-        uint8_t x = *vx % 64;
-        uint8_t y = *vx % 32;
+
         *vf = 0;
+        uint8_t x = *vx % VIDEO_WIDTH;
+        uint8_t y = *vx % VIDEO_HEIGHT;
 
         for (size_t row = 0; row < 32; row++)
         {
+            if (y + row >= VIDEO_HEIGHT)
+                break;
             uint8_t spriteByte = chip8->memory[chip8->index + row];
             for (size_t col = 0; col < 8; col++)
             {
-                uint8_t spritePixel = spritePixel & (0x80 >> col);
-                uint32_t *screenPixel = &chip8->video[(y + row) * 64 + (x + col)];
+                if (x + col >= VIDEO_WIDTH)
+                    break;
+                uint8_t spritePixel = spriteByte & (0x80 >> col);
+                uint32_t *screenPixel = &chip8->video[(y + row) * VIDEO_WIDTH + (x + col)];
 
                 if (spritePixel)
                 {
@@ -285,6 +295,12 @@ void cycle(chip8 *chip8)
                 }
             }
         }
+
+        for (size_t i = 0; i < 2048; i++)
+        {
+            printf("%08x", chip8->video[i]);
+        }
+
         break;
     case 0xE:
         switch (third_nibble)
@@ -388,46 +404,44 @@ void destroy_chip8(chip8 *chip8)
 
 int main(int argc, char **argv)
 {
-    SDL_Init(SDL_INIT_EVERYTHING);
     srand(time(NULL));
 
-    chip8 *chip8 = new_chip8();
+    chip8 *chip8;
+    platform *platform;
+    size_t delay;
+    bool quit = false;
 
-    if (argc == 2)
+    if (argc == 4)
     {
-        loadROM(chip8, argv[1]);
+        chip8 = new_chip8();
+        platform = new_platform("CHIP-8", atoi(argv[1]) * VIDEO_WIDTH, atoi(argv[1]) * VIDEO_HEIGHT);
+        delay = atoi(argv[2]);
+        loadROM(chip8, argv[3]);
     }
     else
     {
-        printf("Please enter the path to the ROM.");
+        fprintf(stderr, "Usage: %s <Scale (int)> <Delay (ms)> <ROM Path>\n", argv[0]);
+        return 1;
     }
 
-    for (int i = 0; i < 0x1FF; i++)
-    {
-        // first thing should be at 0x050
-        printf("%02x", chip8->memory[i]);
-    }
-    printf("\n");
+    clock_t last_cycle_time = clock();
 
-    for (int i = 0x200; i < 0xFFF; i++)
+    while (!quit)
     {
-        printf("%02x", chip8->memory[i]);
-    }
-    printf("\n");
+        quit = process_input(platform, chip8->keys);
 
-    for (int cycles = 0; cycles < 100; cycles++)
-    {
-        cycle(chip8);
-    }
+        clock_t current_time = clock();
 
-    for (int i = 0; i < 0x800; i++)
-    {
-        printf("%02x", chip8->video[i]);
+        if (current_time - last_cycle_time > (delay * CLOCKS_PER_SEC) / 1000)
+        {
+            last_cycle_time = current_time;
+            cycle(chip8);
+            update(platform, chip8->video, sizeof(chip8->video[0]) * VIDEO_WIDTH);
+        }
     }
-    printf("\n");
 
     destroy_chip8(chip8);
+    destroy_platform(platform);
 
-    // SDL_Quit();
     return 0;
 }

@@ -12,7 +12,7 @@ typedef struct platform
 
 } platform;
 
-platform *new_platform(char* title, int width, int height);
-void delete_platform(platform *platform);
-void update(platform *platform);
-bool process_input(platform *platform);
+platform *new_platform(char *title, int width, int height);
+void destroy_platform(platform *this);
+void update(platform *this, void* buffer, int pitch);
+bool process_input(platform *this, uint8_t* keys);
