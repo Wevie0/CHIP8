@@ -241,30 +241,35 @@ void cycle(chip8 *chip8) {
     break;
   case 0xD:
     // DRAW
-
-    *vf = 0;
-    uint8_t x = *vx % VIDEO_WIDTH;
-    uint8_t y = *vx % VIDEO_HEIGHT;
+    uint8_t Vx = (ins & 0x0F00u) >> 8u;
+    uint8_t Vy = (ins & 0x00F0u) >> 4u;
     uint8_t height = ins & 0x000Fu;
 
-    for (size_t row = 0; row < height; row++) {
-      uint8_t spriteByte = chip8->memory[chip8->index + row];
-      for (size_t col = 0; col < 8; col++) {
-        uint8_t spritePixel = spriteByte & (0x80 >> col);
-        uint32_t *screenPixel =
-            &chip8->video[(y + row) * VIDEO_WIDTH + (x + col)];
+    // Wrap if going beyond screen boundaries
+    uint8_t xPos = chip8->registers[Vx] % VIDEO_WIDTH;
+    uint8_t yPos = chip8->registers[Vy] % VIDEO_HEIGHT;
 
+    chip8->registers[0xF] = 0;
+
+    for (unsigned int row = 0; row < height; ++row) {
+      uint8_t spriteByte = chip8->memory[chip8->index + row];
+
+      for (unsigned int col = 0; col < 8; ++col) {
+        uint8_t spritePixel = spriteByte & (0x80u >> col);
+        uint32_t *screenPixel =
+            &chip8->video[(yPos + row) * VIDEO_WIDTH + (xPos + col)];
+
+        // Sprite pixel is on
         if (spritePixel) {
-          if (*screenPixel == 0xFFFFFFFFu) {
+          // Screen pixel also on - collision
+          if (*screenPixel == 0xFFFFFFFF) {
             chip8->registers[0xF] = 1;
           }
-          *screenPixel ^= 0xFFFFFFFFu;
+
+          // Effectively XOR with the sprite pixel
+          *screenPixel ^= 0xFFFFFFFF;
         }
       }
-    }
-
-    for (size_t i = 0; i < 2048; i++) {
-      printf("%08x", chip8->video[i]);
     }
 
     break;
