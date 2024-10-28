@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <stdbool.h>
+#include <SDL2/SDL.h>
 
 const size_t START_ADDRESS = 0x200;
 const size_t FONT_SIZE = 80;
@@ -40,7 +42,7 @@ void loadROM(chip8 *chip8, const char *const filename)
 
     if (file == NULL)
     {
-        printf("Error opening file\n");
+        perror("Error opening file\n");
         return;
     }
 
@@ -58,6 +60,10 @@ void loadROM(chip8 *chip8, const char *const filename)
     {
         chip8->memory[START_ADDRESS + i] = buffer[i];
     }
+    // for (int i = 0; i < 1000; i++)
+    // {
+    //     printf("%02x", chip8->memory[START_ADDRESS + i]);
+    // }
 
     free(buffer);
 }
@@ -85,7 +91,7 @@ chip8 *new_chip8()
 
     chip8 *chip = malloc(sizeof(chip8));
     // 0 initalize
-    *chip = (chip8){};
+    *chip = (chip8){0};
 
     // initalize font
     for (size_t i = 0; i < FONT_SIZE; i++)
@@ -107,15 +113,16 @@ void cycle(chip8 *chip8)
 
     // switch
 
-    char first_nibble = (ins >> 12) & 0xF;
-    char second_nibble = (ins >> 8) & 0xF;
-    char third_nibble = (ins >> 4) & 0xF;
-    char fourth_nibble = ins & 0xF;
-    short last_byte = third_nibble << 4 | fourth_nibble;
+    unsigned char first_nibble = (ins >> 12) & 0xF;
+    unsigned char second_nibble = (ins >> 8) & 0xF;
+    unsigned char third_nibble = (ins >> 4) & 0xF;
+    unsigned char fourth_nibble = ins & 0xF;
+    unsigned short last_byte = third_nibble << 4 | fourth_nibble;
 
     uint8_t *vx = &chip8->registers[second_nibble];
     uint8_t *vy = &chip8->registers[third_nibble];
     uint8_t *vf = &chip8->registers[0xF];
+    uint16_t address = ins & 0xFFFu;
 
     switch (first_nibble)
     {
@@ -127,7 +134,9 @@ void cycle(chip8 *chip8)
             memset(chip8->video, 0, sizeof(chip8->video));
             break;
         case 0xE:
-            // return
+            // RETURN
+            chip8->sptr--;
+            chip8->pc = chip8->stack[chip8->sptr];
             break;
         default:
             printf("%s: 0x%X\n", "Illegal Instruction", ins);
@@ -136,11 +145,13 @@ void cycle(chip8 *chip8)
         break;
     case 0x1:
         // JUMP
-        uint16_t address = ins & 0x0FFFu;
         chip8->pc = address;
         break;
     case 0x2:
-        // CALL
+        // FN CALL
+        chip8->stack[chip8->sptr] = chip8->pc;
+        chip8->sptr++;
+        chip8->pc = address;
         break;
     case 0x3:
         if (*vx == last_byte)
@@ -245,17 +256,50 @@ void cycle(chip8 *chip8)
         }
         break;
     case 0xA:
-        uint16_t address = ins & 0x0FFFu;
         chip8->index = address;
         break;
     case 0xB:
-        uint16_t address = ins & 0x0FFFu;
         chip8->pc = chip8->registers[0] + address;
         break;
     case 0xC:
         *vx = randByte() & last_byte;
         break;
     case 0xD:
+        // DRAW
+
+        uint8_t x = *vx % 64;
+        uint8_t y = *vx % 32;
+        const uint8_t N = fourth_nibble;
+        *vf = 0;
+
+        for (int i = 0; i < N; i++)
+        {
+            uint8_t sprite = chip8->memory[chip8->index + i];
+            for (int j = 0; j < 8; j++)
+            {
+                uint8_t pixel = sprite & (0x80u >> j);
+                uint32_t *screen_pixel = &chip8->video[y * 64 + x];
+
+                *screen_pixel = 0xFFFFFFFF;
+
+                // if (pixel)
+                // {
+                //     if (*screen_pixel == 0xFFFFFFFF)
+                //     {
+                //         *vf = 1;
+                //     }
+
+                //     *screen_pixel ^= 0xFFFFFFFF;
+                // }
+                // x++;
+
+                // if (x == 64)
+                // {
+                //     break;
+                // }
+            }
+            y++;
+        }
         break;
     case 0xE:
         break;
@@ -283,7 +327,38 @@ void destroy_chip8(chip8 *chip8)
 
 int main(int argc, char **argv)
 {
+    SDL_Init(SDL_INIT_EVERYTHING);
     srand(time(NULL));
 
+    chip8 *chip8 = new_chip8();
+
+    if (argc == 2)
+    {
+        loadROM(chip8, argv[1]);
+    }
+    else
+    {
+        printf("Please enter the path to the ROM.");
+    }
+
+    for (int i = 0; i < 1000; i++)
+    {
+        printf("%02x", chip8->memory[START_ADDRESS + i]);
+    }
+    printf("\n");
+
+    for (int cycles = 0; cycles < 100; cycles++)
+    {
+        cycle(chip8);
+    }
+
+    for (int i = 0; i < 1000; i++)
+    {
+        printf("%02x", chip8->memory[START_ADDRESS + i]);
+    }
+
+    destroy_chip8(chip8);
+
+    // SDL_Quit();
     return 0;
 }

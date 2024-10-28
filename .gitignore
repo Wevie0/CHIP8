@@ -1,5 +1,8 @@
 .vscode/*
 
+# output file
+chip8
+
 # Prerequisites
 *.d
 
