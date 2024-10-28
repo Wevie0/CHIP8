@@ -10,6 +10,25 @@ const size_t START_ADDRESS = 0x200;
 const size_t FONT_SIZE = 80;
 const size_t FONT_START_ADDRESS = 0x50;
 
+const uint8_t font[] = {
+    0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
+    0x20, 0x60, 0x20, 0x20, 0x70, // 1
+    0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
+    0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
+    0x90, 0x90, 0xF0, 0x10, 0x10, // 4
+    0xF0, 0x80, 0xF0, 0x10, 0xF0, // 5
+    0xF0, 0x80, 0xF0, 0x90, 0xF0, // 6
+    0xF0, 0x10, 0x20, 0x40, 0x40, // 7
+    0xF0, 0x90, 0xF0, 0x90, 0xF0, // 8
+    0xF0, 0x90, 0xF0, 0x10, 0xF0, // 9
+    0xF0, 0x90, 0xF0, 0x90, 0x90, // A
+    0xE0, 0x90, 0xE0, 0x90, 0xE0, // B
+    0xF0, 0x80, 0x80, 0x80, 0xF0, // C
+    0xE0, 0x90, 0x90, 0x90, 0xE0, // D
+    0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
+    0xF0, 0x80, 0xF0, 0x80, 0x80  // F
+};
+
 typedef struct chip8
 {
     uint8_t registers[16];
@@ -26,9 +45,9 @@ typedef struct chip8
     uint32_t video[64 * 32];
 } chip8;
 
-char randByte()
+uint8_t randByte()
 {
-    char r = rand() % 256;
+    uint8_t r = rand() % 256;
     return r;
 }
 
@@ -60,37 +79,14 @@ void loadROM(chip8 *chip8, const char *const filename)
     {
         chip8->memory[START_ADDRESS + i] = buffer[i];
     }
-    // for (int i = 0; i < 1000; i++)
-    // {
-    //     printf("%02x", chip8->memory[START_ADDRESS + i]);
-    // }
 
     free(buffer);
 }
 
 chip8 *new_chip8()
 {
-    const uint8_t font[] = {
-        0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
-        0x20, 0x60, 0x20, 0x20, 0x70, // 1
-        0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
-        0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
-        0x90, 0x90, 0xF0, 0x10, 0x10, // 4
-        0xF0, 0x80, 0xF0, 0x10, 0xF0, // 5
-        0xF0, 0x80, 0xF0, 0x90, 0xF0, // 6
-        0xF0, 0x10, 0x20, 0x40, 0x40, // 7
-        0xF0, 0x90, 0xF0, 0x90, 0xF0, // 8
-        0xF0, 0x90, 0xF0, 0x10, 0xF0, // 9
-        0xF0, 0x90, 0xF0, 0x90, 0x90, // A
-        0xE0, 0x90, 0xE0, 0x90, 0xE0, // B
-        0xF0, 0x80, 0x80, 0x80, 0xF0, // C
-        0xE0, 0x90, 0x90, 0x90, 0xE0, // D
-        0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
-        0xF0, 0x80, 0xF0, 0x80, 0x80  // F
-    };
-
     chip8 *chip = malloc(sizeof(chip8));
-    // 0 initalize
+    // 0 initialize
     *chip = (chip8){0};
 
     // initalize font
@@ -111,6 +107,8 @@ void cycle(chip8 *chip8)
     uint16_t ins = chip8->memory[chip8->pc] << 8 | chip8->memory[chip8->pc + 1];
     chip8->pc += 2;
 
+    printf("%06x", chip8->pc);
+
     // switch
 
     unsigned char first_nibble = (ins >> 12) & 0xF;
@@ -123,7 +121,6 @@ void cycle(chip8 *chip8)
     uint8_t *vy = &chip8->registers[third_nibble];
     uint8_t *vf = &chip8->registers[0xF];
     uint16_t address = ins & 0xFFFu;
-
     switch (first_nibble)
     {
     case 0x0:
@@ -195,7 +192,7 @@ void cycle(chip8 *chip8)
         case 0x4:
 
             // detect wrap around
-            if (*vx + *vy < *vx)
+            if (*vx + *vy > *vx)
             {
                 *vf = 1;
             }
@@ -266,46 +263,110 @@ void cycle(chip8 *chip8)
         break;
     case 0xD:
         // DRAW
-
         uint8_t x = *vx % 64;
         uint8_t y = *vx % 32;
-        const uint8_t N = fourth_nibble;
         *vf = 0;
 
-        for (int i = 0; i < N; i++)
+        for (size_t row = 0; row < 32; row++)
         {
-            uint8_t sprite = chip8->memory[chip8->index + i];
-            for (int j = 0; j < 8; j++)
+            uint8_t spriteByte = chip8->memory[chip8->index + row];
+            for (size_t col = 0; col < 8; col++)
             {
-                uint8_t pixel = sprite & (0x80u >> j);
-                uint32_t *screen_pixel = &chip8->video[y * 64 + x];
+                uint8_t spritePixel = spritePixel & (0x80 >> col);
+                uint32_t *screenPixel = &chip8->video[(y + row) * 64 + (x + col)];
 
-                *screen_pixel = 0xFFFFFFFF;
-
-                // if (pixel)
-                // {
-                //     if (*screen_pixel == 0xFFFFFFFF)
-                //     {
-                //         *vf = 1;
-                //     }
-
-                //     *screen_pixel ^= 0xFFFFFFFF;
-                // }
-                // x++;
-
-                // if (x == 64)
-                // {
-                //     break;
-                // }
+                if (spritePixel)
+                {
+                    if (*screenPixel == 0xFFFFFFFFu)
+                    {
+                        chip8->registers[0xF] = 1;
+                    }
+                    *screenPixel ^= 0xFFFFFFFFu;
+                }
             }
-            y++;
         }
         break;
     case 0xE:
+        switch (third_nibble)
+        {
+        case 0x9:
+            if (chip8->keys[*vx])
+            {
+                chip8->pc += 2;
+            }
+            break;
+        case 0xA:
+            if (!chip8->keys[*vx])
+            {
+                chip8->pc += 2;
+            }
+            break;
+        default:
+            break;
+        }
+
         break;
     case 0xF:
+        switch (last_byte)
+        {
+        case 0x07:
+            *vx = chip8->delay;
+            break;
+        case 0x0A:
+            bool was_pressed = false;
+            for (size_t i = 0; i < 16; i++)
+            {
+                if (chip8->keys[i])
+                {
+                    was_pressed = true;
+                    *vx = i;
+                    break;
+                }
+            }
+            if (!was_pressed)
+            {
+                chip8->pc -= 2;
+            }
+            break;
+        case 0x15:
+            chip8->delay = *vx;
+            break;
+        case 0x18:
+            chip8->sound = *vx;
+            break;
+        case 0x1E:
+            chip8->index += *vx;
+            break;
+        case 0x29:
+            chip8->index = FONT_START_ADDRESS + 5 * (*vx);
+            break;
+        case 0x33:
+            uint8_t value = *vx;
+            chip8->memory[chip8->index + 2] = value % 10;
+            value /= 10;
+            chip8->memory[chip8->index + 1] = value % 10;
+            value /= 10;
+            chip8->memory[chip8->index + 0] = value % 10;
+            break;
+        case 0x55:
+            for (size_t i = 0; i < second_nibble; i++)
+            {
+                chip8->memory[chip8->index + i] = chip8->registers[i];
+            }
+            break;
+        case 0x65:
+            for (size_t i = 0; i < second_nibble; i++)
+            {
+                chip8->registers[i] = chip8->memory[chip8->index + i];
+            }
+            break;
+        default:
+            printf("%s: 0x%X\n", "Illegal Instruction", ins);
+            break;
+        }
         break;
     default:
+        printf("%s: 0x%X\n", "Illegal Instruction", ins);
         break;
     }
 
@@ -341,9 +402,16 @@ int main(int argc, char **argv)
         printf("Please enter the path to the ROM.");
     }
 
-    for (int i = 0; i < 1000; i++)
+    for (int i = 0; i < 0x1FF; i++)
     {
-        printf("%02x", chip8->memory[START_ADDRESS + i]);
+        // first thing should be at 0x050
+        printf("%02x", chip8->memory[i]);
+    }
+    printf("\n");
+
+    for (int i = 0x200; i < 0xFFF; i++)
+    {
+        printf("%02x", chip8->memory[i]);
     }
     printf("\n");
 
@@ -352,10 +420,11 @@ int main(int argc, char **argv)
         cycle(chip8);
     }
 
-    for (int i = 0; i < 1000; i++)
+    for (int i = 0; i < 0x800; i++)
     {
-        printf("%02x", chip8->memory[START_ADDRESS + i]);
+        printf("%02x", chip8->video[i]);
     }
+    printf("\n");
 
     destroy_chip8(chip8);
 
