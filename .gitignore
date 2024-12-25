@@ -1,5 +1,5 @@
 .vscode/*
-
+.DS_Store
 # output file
 chip8
 

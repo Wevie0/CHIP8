@@ -1,6 +1,8 @@
 # CHIP8
 
-Chip-8 Interpreter written in C17. No sound support. Based on this amazing guide: https://tobiasvl.github.io/blog/write-a-chip-8-emulator/
+Chip-8 Interpreter/Emulator written in C17. No sound support. Based on this amazing guide: https://tobiasvl.github.io/blog/write-a-chip-8-emulator/
+
+Tests from https://github.com/Timendus/chip8-test-suite and games from https://johnearnest.github.io/chip8Archive/.
 
 ## Building
 
@@ -10,6 +12,11 @@ Chip-8 Interpreter written in C17. No sound support. Based on this amazing guide
 
 ## Usage
 
-Run the emulator with the command `./chip8 <path to ROM>`.
+Run the emulator with the command `./chip8 <Scale> <Delay (ms)> <ROM Path>`.
 
-## Keyboard
+## Screenshots 
+![snake game](./images/snake.png)
+
+![tank game](./images/tank.png)
+
+![br8kout game](./images/br8kout.png)
