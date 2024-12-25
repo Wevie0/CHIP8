@@ -4,15 +4,15 @@
 #include <SDL2/SDL_video.h>
 #include <stdbool.h>
 
-typedef struct platform
-{
+typedef struct platform {
     SDL_Window *window;
     SDL_Renderer *renderer;
     SDL_Texture *texture;
 
 } platform;
 
-platform *new_platform(char *title, int scaledWidth, int scaledHeight, int unscaledWidth, int unscaledHeight);
+platform *new_platform(char *title, int scaledWidth, int scaledHeight,
+                       int unscaledWidth, int unscaledHeight);
 void destroy_platform(platform *this);
-void update(platform *this, void* buffer, int pitch);
-bool process_input(platform *this, uint8_t* keys);
+void update(platform *this, void *buffer, int pitch);
+bool process_input(platform *this, uint8_t *keys);
