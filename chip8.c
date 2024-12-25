@@ -305,22 +305,24 @@ void cycle(chip8 *chip8) {
         break;
     case 0xF:
         switch (last_byte) {
-            bool was_pressed = false;
         case 0x07:
             *vx = chip8->delay;
             break;
-        case 0x0A:
+        case 0x0A: {
+            // loops until a key is pressed
+            bool was_pressed = false;
             for (size_t i = 0; i < 16; i++) {
                 if (chip8->keys[i]) {
                     was_pressed = true;
                     *vx = i;
+
                     break;
                 }
             }
             if (!was_pressed) {
                 chip8->pc -= 2;
             }
-            break;
+        } break;
         case 0x15:
             chip8->delay = *vx;
             break;
@@ -331,6 +333,7 @@ void cycle(chip8 *chip8) {
             chip8->index += *vx;
             break;
         case 0x29:
+            // character takes up 5 indices
             chip8->index = FONT_START_ADDRESS + 5 * (*vx);
             break;
         case 0x33: {
